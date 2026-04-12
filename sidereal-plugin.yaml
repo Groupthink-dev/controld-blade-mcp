@@ -1,0 +1,90 @@
+name: controld-blade-mcp
+version: "0.1.0"
+description: "Control-D DNS filtering and privacy operations — profiles, filters, services, custom rules, device management."
+author: piersdd
+licence: MIT
+tier: certified
+homepage: https://github.com/piersdd/controld-blade-mcp
+contract: dns-v1
+
+services:
+  dns:
+    info: cd_info
+    network: cd_network
+    profiles: cd_profiles
+    profile: cd_profile
+    profile_create: cd_profile_create
+    profile_update: cd_profile_update
+    filters: cd_filters
+    filters_update: cd_filters_update
+    services: cd_services
+    service_catalog: cd_service_catalog
+    service_update: cd_service_update
+    rules: cd_rules
+    rule_create: cd_rule_create
+    rule_update: cd_rule_update
+    rule_delete: cd_rule_delete
+    default_rule: cd_default_rule
+    default_rule_set: cd_default_rule_set
+    devices: cd_devices
+    device_create: cd_device_create
+    device_update: cd_device_update
+    access: cd_access
+    access_update: cd_access_update
+    analytics_config: cd_analytics_config
+
+setup:
+  icon: "\U0001F6E1"
+  blurb: "Control-D DNS filtering and privacy management"
+  auth_model: api_key
+  complexity: trivial
+  fields:
+    - key: CONTROLD_API_KEY
+      label: "API Key"
+      secret: true
+      required: true
+      placeholder: "Get from controld.com/dashboard/api"
+      help: "Bearer token from your Control-D dashboard. Needs Read or Write tier."
+    - key: CONTROLD_WRITE_ENABLED
+      label: "Enable write operations"
+      type: boolean
+      required: false
+  test:
+    endpoint: "https://api.controld.com/users"
+    auth_style: bearer
+    auth_header: "Authorization"
+  help:
+    - label: "Control-D API docs"
+      url: "https://docs.controld.com/reference/get_access"
+    - label: "Get API token"
+      url: "https://controld.com/dashboard/api"
+
+install:
+  runtime: uv
+  package: controld-blade-mcp
+  command: controld-blade-mcp
+
+env:
+  - name: CONTROLD_API_KEY
+    description: "Control-D API token (Bearer)"
+    secret: true
+  - name: CONTROLD_WRITE_ENABLED
+    description: "Enable write operations"
+    default: "false"
+  - name: CONTROLD_MCP_API_TOKEN
+    description: "Bearer token for HTTP transport authentication"
+    secret: true
+    default: ""
+  - name: CONTROLD_MCP_TRANSPORT
+    description: "Transport mode: stdio (default) or http"
+    secret: false
+    default: "stdio"
+
+requires:
+  sidereal: ">=0.57"
+
+conformance:
+  required: "6/6"
+  recommended: "5/5"
+  gated: "11/11"
+  last_tested: "2026-04-12"

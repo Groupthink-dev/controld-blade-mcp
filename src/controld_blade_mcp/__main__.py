@@ -1,0 +1,3 @@
+from controld_blade_mcp.server import main
+
+main()
