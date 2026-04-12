@@ -4,6 +4,8 @@ description: "Control-D DNS filtering and privacy operations — profiles, filte
 author: piersdd
 licence: MIT
 tier: certified
+author_type: first-party
+readiness: production
 homepage: https://github.com/piersdd/controld-blade-mcp
 contract: dns-v1
 
