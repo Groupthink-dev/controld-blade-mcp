@@ -1,5 +1,5 @@
 name: controld-blade-mcp
-version: "0.1.1"
+version: "0.2.0"
 description: "Control-D DNS filtering and privacy operations — profiles, filters, services, custom rules, device management."
 author: groupthink-dev
 license: MIT
@@ -7,10 +7,14 @@ tier: certified
 author_type: first-party
 readiness: production
 homepage: https://github.com/Groupthink-dev/controld-blade-mcp
-contract: dns-v1
+
+# DD-181 Wave 2: dns-v1 (filtering) was renamed to protective-dns-v1 to free
+# the `dns-v1` contract slot for authoritative DNS providers. Service slot
+# also renamed `dns` → `protective_dns` to disambiguate.
+contract: protective-dns-v1
 
 services:
-  dns:
+  protective_dns:
     info: cd_info
     network: cd_network
     profiles: cd_profiles
