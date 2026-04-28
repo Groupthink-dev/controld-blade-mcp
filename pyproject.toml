@@ -1,6 +1,6 @@
 [project]
 name = "controld-blade-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "Control-D MCP Server — DNS filtering, privacy profiles, and device management"
 readme = "README.md"
 license = {text = "MIT"}
