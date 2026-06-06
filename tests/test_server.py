@@ -33,9 +33,12 @@ class TestReadTools:
         assert "1.2.3.4" in result
 
     async def test_cd_network(self, mock_client: MagicMock) -> None:
-        mock_client.get_network.return_value = {"dns": {"status": "operational"}}
+        mock_client.get_network.return_value = {
+            "network": [{"iata_code": "SYD", "city_name": "Sydney", "status": {"api": 1, "dns": 1, "pxy": 1}}]
+        }
         result = await cd_network()
-        assert "operational" in result
+        assert "PoPs: 1" in result
+        assert "dns up: 1" in result
 
     async def test_cd_profiles(self, mock_client: MagicMock) -> None:
         mock_client.list_profiles.return_value = [make_profile()]

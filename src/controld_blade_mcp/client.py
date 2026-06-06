@@ -277,8 +277,15 @@ class ControlDClient:
     # ── Custom Rules ────────────────────────────────────────────────
 
     def list_rules(self, profile_id: str, folder_id: int = 0) -> list[dict[str, Any]]:
-        """List custom rules in a folder (0 = root)."""
-        body = self._request("GET", f"/profiles/{profile_id}/rules/{folder_id}")
+        """List custom rules. ``folder_id=0`` lists ungrouped rules (the bare
+        ``/rules`` endpoint); a non-zero id lists rules in that group.
+
+        The API has no group ``0`` — ``GET /rules/0`` returns ``400 No such
+        group exists``. Ungrouped rules carry ``group: 0`` but live under the
+        bare collection path, so 0 must route there, not to ``/rules/0``.
+        """
+        path = f"/profiles/{profile_id}/rules" if not folder_id else f"/profiles/{profile_id}/rules/{folder_id}"
+        body = self._request("GET", path)
         return self._as_list(body, "rules")
 
     def list_rule_folders(self, profile_id: str) -> list[dict[str, Any]]:

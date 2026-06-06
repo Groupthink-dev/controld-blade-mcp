@@ -35,18 +35,25 @@ def mock_client() -> MagicMock:
 # ── Mock data builders ──────────────────────────────────────────────
 
 
+# NOTE (DD-385 Phase 2): these builders encode the SHAPES CAPTURED FROM THE LIVE
+# Control-D API on 2026-06-06 — not docs, not guesses. The pre-hardening mocks
+# encoded wrong shapes (flat `do`, `stats.{rules,devices}`, top-level filter
+# `status`) and a 100%-green suite shipped a fully-broken formatter layer.
+
+
 def make_profile(
     pk: str = "abc123",
     name: str = "Main Profile",
-    stats: dict[str, Any] | None = None,
-    lock: int = 0,
+    counts: dict[str, int] | None = None,
+    lock: int | None = None,
 ) -> dict[str, Any]:
-    """Build a mock profile dict."""
+    """Build a mock profile dict (live shape: counts nest under ``profile``)."""
+    counts = counts or {"flt": 8, "rule": 47, "svc": 1, "grp": 4}
     return {
         "PK": pk,
         "name": name,
-        "stats": stats or {"rules": 47, "devices": 3, "filters": 8},
         "lock": lock,
+        "profile": {key: {"count": val} for key, val in counts.items()},
     }
 
 
@@ -55,16 +62,15 @@ def make_device(
     name: str = "MacBook Pro",
     profile_id: str = "abc123",
     profile_name: str = "Main Profile",
-    device_type: str = "macos",
+    icon: str = "desktop-mac",
     status: int = 1,
 ) -> dict[str, Any]:
-    """Build a mock device dict."""
+    """Build a mock device dict (live shape: device class is ``icon``)."""
     return {
         "PK": pk,
         "name": name,
         "profile": {"PK": profile_id, "name": profile_name},
-        "profile_id": profile_id,
-        "device_type": device_type,
+        "icon": icon,
         "status": status,
         "resolvers": {
             "doh": f"https://dns.controld.com/{pk}",
@@ -77,14 +83,12 @@ def make_rule(
     pk: str = "example.com",
     action: int = 0,
     via: str = "",
-    group: int | None = None,
+    group: int = 0,
 ) -> dict[str, Any]:
-    """Build a mock custom rule dict."""
-    result: dict[str, Any] = {"PK": pk, "do": action}
+    """Build a mock custom rule dict (live shape: action nests under ``action``)."""
+    result: dict[str, Any] = {"PK": pk, "order": 1, "group": group, "action": {"do": action, "status": 1}}
     if via:
-        result["via"] = via
-    if group is not None:
-        result["group"] = group
+        result["unlock_location"] = via
     return result
 
 
@@ -93,22 +97,31 @@ def make_filter(
     name: str = "Ads & Trackers",
     status: int = 1,
 ) -> dict[str, Any]:
-    """Build a mock filter dict."""
-    return {"PK": pk, "title": name, "status": status}
+    """Build a mock native filter dict (live shape: enabled state is per-``levels``)."""
+    return {
+        "PK": pk,
+        "name": name,
+        "levels": [
+            {"title": "Relaxed", "name": f"{pk}_small", "status": status},
+            {"title": "Strict", "name": f"{pk}_big", "status": 0},
+        ],
+    }
 
 
 def make_service(
     pk: str = "youtube",
     name: str = "YouTube",
     action: int = 1,
-    category: str = "Video Streaming",
+    category: str = "video",
+    status: int = 1,
 ) -> dict[str, Any]:
-    """Build a mock service rule dict."""
+    """Build a mock service rule dict (live shape: ``action.{do,status}`` + string category)."""
     return {
         "PK": pk,
         "name": name,
-        "do": action,
-        "category": {"name": category},
+        "category": category,
+        "unlock_location": "JFK",
+        "action": {"do": action, "status": status},
     }
 
 
@@ -117,5 +130,9 @@ def make_access_entry(
     ts: str = "2026-04-12T10:30:00",
     country: str = "AU",
 ) -> dict[str, Any]:
-    """Build a mock IP access entry."""
+    """Build a mock IP access entry.
+
+    The live ``/access`` list was empty on the audited account, so this item
+    shape (ip/ts/country) is NOT live-verified — flagged for the e2e tier.
+    """
     return {"ip": ip, "ts": ts, "country": country}

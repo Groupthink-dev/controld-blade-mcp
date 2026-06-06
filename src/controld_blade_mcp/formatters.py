@@ -115,24 +115,55 @@ def format_info(user: dict[str, Any], ip_data: dict[str, Any]) -> str:
 
 
 def format_network(network: dict[str, Any]) -> str:
-    """Format network stats."""
-    if not network:
+    """Format Control-D PoP availability.
+
+    Wire shape: ``{"network": [{iata_code, city_name, country_name,
+    status: {api, dns, pxy}}, ...]}`` where each status value is ``1`` (up),
+    ``-1`` (down/unavailable) or ``0``. Summarise totals + list any PoP that is
+    not fully healthy (keeps output token-cheap; healthy PoPs are the norm).
+    """
+    pops = network.get("network", network) if isinstance(network, dict) else network
+    if not isinstance(pops, list) or not pops:
         return "(no network data)"
-    lines = []
-    for service, stats in network.items():
-        if isinstance(stats, dict):
-            status = stats.get("status", "unknown")
-            latency = stats.get("latency", "")
-            line = f"{service} | {status}"
-            if latency:
-                line += f" | {latency}ms"
-            lines.append(line)
-        else:
-            lines.append(f"{service} | {stats}")
-    return "\n".join(lines) if lines else "(no network data)"
+
+    up = {"api": 0, "dns": 0, "pxy": 0}
+    degraded = []
+    for pop in pops:
+        status = pop.get("status", {}) if isinstance(pop, dict) else {}
+        for svc in ("api", "dns", "pxy"):
+            if status.get(svc) == 1:
+                up[svc] += 1
+        bad = [s for s in ("api", "dns", "pxy") if status.get(s) is not None and status.get(s) != 1]
+        if bad:
+            loc = f"{pop.get('iata_code', '?')} {pop.get('city_name', '')}".strip()
+            degraded.append(f"{loc} | down: {', '.join(bad)}")
+
+    lines = [f"PoPs: {len(pops)} | api up: {up['api']} | dns up: {up['dns']} | proxy up: {up['pxy']}"]
+    if degraded:
+        lines.append(f"\n## Degraded ({len(degraded)})")
+        lines.extend(degraded)
+    return "\n".join(lines)
 
 
 # ── Profiles ────────────────────────────────────────────────────────
+
+
+# Profile count nodes live under the ``profile`` envelope as ``{key: {count: N}}``.
+# (label shown to the user, wire key under profile.*)
+_PROFILE_COUNTS = (("rules", "rule"), ("filters", "flt"), ("services", "svc"), ("folders", "grp"))
+
+
+def _profile_counts(profile: dict[str, Any]) -> list[str]:
+    """Extract ``label: N`` count parts from a profile's ``profile.{key}.count`` block."""
+    prof = profile.get("profile", {})
+    if not isinstance(prof, dict):
+        return []
+    parts = []
+    for label, key in _PROFILE_COUNTS:
+        node = prof.get(key)
+        if isinstance(node, dict) and node.get("count") is not None:
+            parts.append(f"{label}: {node['count']}")
+    return parts
 
 
 def format_profiles(profiles: list[dict[str, Any]]) -> str:
@@ -142,47 +173,41 @@ def format_profiles(profiles: list[dict[str, Any]]) -> str:
     lines = []
     for p in profiles:
         parts = [f"ID: {_safe(p.get('PK'))}", _safe(p.get("name"))]
-        stats = p.get("stats", {})
-        if isinstance(stats, dict):
-            rules = stats.get("rules")
-            if rules is not None:
-                parts.append(f"rules: {rules}")
-            devices = stats.get("devices")
-            if devices is not None:
-                parts.append(f"devices: {devices}")
+        parts.extend(_profile_counts(p))
         if p.get("lock"):
             parts.append("locked")
-        if p.get("disable_until"):
-            parts.append(f"disabled-until: {p['disable_until']}")
+        if p.get("disable"):
+            parts.append("disabled")
         lines.append(" | ".join(parts))
     return "\n".join(lines)
 
 
 def format_profile_detail(profile: dict[str, Any], options: list[dict[str, Any]] | None = None) -> str:
-    """Format single profile with full detail."""
+    """Format single profile with full detail.
+
+    ``options`` is the *global* option catalog (``/profiles/options``); the
+    profile's actually-enabled options live in ``profile.opt.data``. We surface
+    the enabled set and use the catalog only to resolve human titles.
+    """
     lines = [
         f"Profile: {_safe(profile.get('name'))}",
         f"ID: {_safe(profile.get('PK'))}",
     ]
     if profile.get("lock"):
         lines.append("Locked: yes")
-    if profile.get("disable_until"):
-        lines.append(f"Disabled until: {profile['disable_until']}")
+    if profile.get("disable"):
+        lines.append("Disabled: yes")
 
-    stats = profile.get("stats", {})
-    if isinstance(stats, dict):
-        stat_parts = []
-        for key in ("rules", "devices", "filters"):
-            val = stats.get(key)
-            if val is not None:
-                stat_parts.append(f"{key}: {val}")
-        if stat_parts:
-            lines.append("Stats: " + ", ".join(stat_parts))
+    stats = _profile_counts(profile)
+    if stats:
+        lines.append("Stats: " + ", ".join(stats))
 
-    if options:
-        enabled = [o.get("name", o.get("PK", "?")) for o in options if o.get("status") == 1]
-        if enabled:
-            lines.append(f"Options: {', '.join(enabled)}")
+    prof = profile.get("profile", {})
+    opt_data = prof.get("opt", {}).get("data", []) if isinstance(prof, dict) else []
+    if isinstance(opt_data, list) and opt_data:
+        titles = {str(o.get("PK")): o.get("title", o.get("PK")) for o in (options or [])}
+        enabled = [f"{titles.get(str(o.get('PK')), o.get('PK'))}={o.get('value')}" for o in opt_data]
+        lines.append(f"Options: {', '.join(str(e) for e in enabled)}")
 
     return "\n".join(lines)
 
@@ -190,46 +215,77 @@ def format_profile_detail(profile: dict[str, Any], options: list[dict[str, Any]]
 # ── Filters ─────────────────────────────────────────────────────────
 
 
-def format_filters(native: Any, external: Any) -> str:
-    """Format native + external filters grouped by type."""
-    lines = []
-    if isinstance(native, list):
-        native_list = native
-    elif isinstance(native, dict):
-        native_list = native.get("filters", [])
-    else:
-        native_list = []
+def _filter_enabled(f: dict[str, Any]) -> bool:
+    """A filter is on when one of its ``levels`` is active, or (external) when
+    its own ``status`` is 1."""
+    levels = f.get("levels")
+    if isinstance(levels, list):
+        return any(isinstance(lvl, dict) and lvl.get("status") == 1 for lvl in levels)
+    return f.get("status") == 1
 
-    if isinstance(external, list):
-        ext_list = external
-    elif isinstance(external, dict):
-        ext_list = external.get("filters", [])
-    else:
-        ext_list = []
 
-    enabled_native = sum(1 for f in native_list if f.get("status") == 1)
-    lines.append(f"## Native Filters ({enabled_native}/{len(native_list)} enabled)")
-    for f in native_list:
-        parts = [_safe(f.get("PK", f.get("name", "?"))), _on_off(f.get("status"))]
-        title = f.get("title", f.get("name", ""))
+def _active_level(f: dict[str, Any]) -> str:
+    """Name of the active level, if any (e.g. ``Balanced``)."""
+    levels = f.get("levels")
+    if isinstance(levels, list):
+        for lvl in levels:
+            if isinstance(lvl, dict) and lvl.get("status") == 1:
+                return str(lvl.get("title", lvl.get("name", "")))
+    return ""
+
+
+def _filter_list(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        inner = value.get("filters", [])
+        return inner if isinstance(inner, list) else []
+    return []
+
+
+def _format_filter_group(filters: list[dict[str, Any]], heading: str) -> list[str]:
+    enabled = sum(1 for f in filters if _filter_enabled(f))
+    lines = [f"## {heading} ({enabled}/{len(filters)} enabled)"]
+    for f in filters:
+        on = _filter_enabled(f)
+        parts = [_safe(f.get("PK", f.get("name", "?"))), "ON" if on else "OFF"]
+        title = f.get("name", "")
         if title:
             parts.append(title)
+        level = _active_level(f) if on else ""
+        if level:
+            parts.append(f"level: {level}")
         lines.append(" | ".join(parts))
+    return lines
 
+
+def format_filters(native: Any, external: Any) -> str:
+    """Format native + external filters grouped by type."""
+    native_list = _filter_list(native)
+    ext_list = _filter_list(external)
+    lines = _format_filter_group(native_list, "Native Filters")
     if ext_list:
-        enabled_ext = sum(1 for f in ext_list if f.get("status") == 1)
-        lines.append(f"\n## External Filters ({enabled_ext}/{len(ext_list)} enabled)")
-        for f in ext_list:
-            parts = [_safe(f.get("PK", f.get("name", "?"))), _on_off(f.get("status"))]
-            title = f.get("title", f.get("name", ""))
-            if title:
-                parts.append(title)
-            lines.append(" | ".join(parts))
-
+        lines.append("")
+        lines.extend(_format_filter_group(ext_list, "External Filters"))
     return "\n".join(lines)
 
 
 # ── Services ────────────────────────────────────────────────────────
+
+
+def _do_via(item: dict[str, Any]) -> tuple[int | None, int | None, str]:
+    """Extract (do, status, via) from an item whose action lives under
+    ``action: {do, status}`` (live shape), falling back to flat keys.
+
+    ``via`` is the proxy location: the live key is ``unlock_location``
+    (legacy/flat payloads use ``via``)."""
+    act = item.get("action")
+    if isinstance(act, dict):
+        do, status = act.get("do"), act.get("status")
+    else:
+        do, status = item.get("do"), item.get("status")
+    via = item.get("unlock_location") or item.get("via") or ""
+    return do, status, via
 
 
 def format_services(services: list[dict[str, Any]]) -> str:
@@ -239,16 +295,16 @@ def format_services(services: list[dict[str, Any]]) -> str:
     lines = []
     for s in services:
         name = _safe(s.get("name", s.get("PK", "?")))
-        action = _action_label(s.get("do"))
-        parts = [name, action]
+        do, status, via = _do_via(s)
+        parts = [name, _action_label(do)]
+        if status is not None:
+            parts.append(_on_off(status))
         cat = s.get("category", {})
         if isinstance(cat, dict) and cat.get("name"):
             parts.append(f"category: {cat['name']}")
         elif isinstance(cat, str) and cat:
             parts.append(f"category: {cat}")
-        via = s.get("via")
         if via:
-            parts[-1] = f"{parts[-1]}"
             parts.append(f"via: {via}")
         lines.append(" | ".join(parts))
     return "\n".join(lines)
@@ -264,8 +320,12 @@ def format_service_catalog(catalog: dict[str, Any]) -> str:
     cat_list = categories if isinstance(categories, list) else categories.get("categories", [])
     for cat in cat_list:
         cat_name = _safe(cat.get("name", cat.get("PK", "?")))
+        # The categories endpoint returns a per-category ``count`` but not the
+        # inline service list (there is no per-category service endpoint).
         services = cat.get("services", [])
-        lines.append(f"## {cat_name} ({len(services)} services)")
+        count = cat.get("count", len(services))
+        pk = _safe(cat.get("PK", ""))
+        lines.append(f"## {cat_name} [{pk}] ({count} services)")
         for svc in services[:10]:
             lines.append(f"  {_safe(svc.get('PK', '?'))} | {_safe(svc.get('name', ''))}")
         if len(services) > 10:
@@ -295,20 +355,22 @@ def format_rules(rules: list[dict[str, Any]], folders: list[dict[str, Any]] | No
     if folders:
         for f in folders:
             fid = f.get("PK", f.get("group"))
-            fname = f.get("name", "")
+            # Folder name is the ``group`` key on the live API (``name`` on
+            # legacy/flat payloads).
+            fname = f.get("group") if isinstance(f.get("group"), str) else f.get("name", "")
             if fid is not None and fname:
                 folder_map[int(fid)] = fname
 
     lines = []
     for r in rules:
         hostname = _safe(r.get("PK", r.get("hostname", "?")))
-        action = _action_label(r.get("do"))
+        do, _status, via = _do_via(r)
+        action = _action_label(do)
         parts = [hostname, action]
-        via = r.get("via")
         if via and action in ("SPOOF", "REDIRECT"):
             parts[-1] = f"{action} -> {via}"
         group = r.get("group")
-        if group is not None:
+        if group:  # group 0 = ungrouped, not worth a label
             fname = folder_map.get(int(group), str(group))
             parts.append(f"folder: {fname}")
         lines.append(" | ".join(parts))
@@ -316,15 +378,16 @@ def format_rules(rules: list[dict[str, Any]], folders: list[dict[str, Any]] | No
 
 
 def format_default_rule(rule: dict[str, Any]) -> str:
-    """Format default rule status."""
-    action = _action_label(rule.get("do"))
-    via = rule.get("via", "")
-    status = _on_off(rule.get("status"))
+    """Format default rule status. Live shape nests under ``default``."""
+    default = rule.get("default")
+    inner: dict[str, Any] = default if isinstance(default, dict) else rule
+    do, status, via = _do_via(inner)
+    action = _action_label(do)
     parts = [f"Default rule: {action}"]
     if via and action in ("SPOOF", "REDIRECT"):
         parts[0] = f"Default rule: {action} -> {via}"
-    if status:
-        parts.append(f"status: {status}")
+    if status is not None:
+        parts.append(f"status: {_on_off(status)}")
     return " | ".join(parts)
 
 
@@ -343,7 +406,9 @@ def format_devices(devices: list[dict[str, Any]]) -> str:
             parts.append(f"profile: {profile['name']}")
         elif d.get("profile_id"):
             parts.append(f"profile_id: {d['profile_id']}")
-        dtype = d.get("device_type")
+        # Live API names the device class ``icon`` (e.g. mobile-ios, desktop);
+        # legacy/flat payloads used ``device_type``.
+        dtype = d.get("device_type") or d.get("icon")
         if dtype:
             parts.append(f"type: {dtype}")
         status = d.get("status")
@@ -367,7 +432,7 @@ def format_device_detail(device: dict[str, Any]) -> str:
     profile = device.get("profile", {})
     if isinstance(profile, dict) and profile.get("name"):
         lines.append(f"Profile: {profile['name']} (ID: {profile.get('PK', '?')})")
-    dtype = device.get("device_type")
+    dtype = device.get("device_type") or device.get("icon")
     if dtype:
         lines.append(f"Type: {dtype}")
     status = device.get("status")
@@ -415,18 +480,21 @@ def format_analytics_config(levels: list[dict[str, Any]], endpoints: list[dict[s
         lines.append("## Log Levels")
         for lvl in levels:
             parts = [_safe(lvl.get("PK", lvl.get("name", "?")))]
-            desc = lvl.get("description", "")
-            if desc:
-                parts.append(_truncate(desc, 80))
+            label = lvl.get("title") or lvl.get("description", "")
+            if label:
+                parts.append(_truncate(label, 80))
             lines.append(" | ".join(parts))
 
     if endpoints:
         lines.append("\n## Storage Regions")
         for ep in endpoints:
             parts = [_safe(ep.get("PK", ep.get("name", "?")))]
-            loc = ep.get("location", ep.get("description", ""))
+            loc = ep.get("title") or ep.get("location") or ep.get("description", "")
             if loc:
                 parts.append(loc)
+            cc = ep.get("country_code")
+            if cc:
+                parts.append(cc)
             lines.append(" | ".join(parts))
 
     return "\n".join(lines) if lines else "(no analytics configuration)"

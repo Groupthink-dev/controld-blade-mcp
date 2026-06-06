@@ -76,9 +76,18 @@ class TestFormatNetwork:
         assert format_network({}) == "(no network data)"
 
     def test_with_data(self) -> None:
-        result = format_network({"dns": {"status": "operational", "latency": 5}})
-        assert "dns" in result
-        assert "operational" in result
+        # Live shape: {"network": [{iata_code, city_name, status: {api, dns, pxy}}]}
+        result = format_network(
+            {
+                "network": [
+                    {"iata_code": "SYD", "city_name": "Sydney", "status": {"api": 1, "dns": 1, "pxy": 1}},
+                    {"iata_code": "ATL", "city_name": "Atlanta", "status": {"api": 1, "dns": 1, "pxy": -1}},
+                ]
+            }
+        )
+        assert "PoPs: 2" in result
+        assert "proxy up: 1" in result
+        assert "ATL Atlanta | down: pxy" in result
 
 
 class TestFormatProfiles:
@@ -174,7 +183,7 @@ class TestFormatDevices:
         assert "dev001" in result
         assert "MacBook Pro" in result
         assert "Main Profile" in result
-        assert "macos" in result
+        assert "desktop-mac" in result
 
     def test_multiple(self) -> None:
         devices = [make_device(pk="d1", name="Mac"), make_device(pk="d2", name="Router")]
