@@ -1,17 +1,16 @@
 name: controld-blade-mcp
-version: "0.3.0"
+version: "0.4.0"
 description: "Control-D DNS filtering and privacy operations — profiles, filters, services, custom rules, device management."
 author: groupthink-dev
 license: MIT
 tier: certified
 author_type: first-party
-# DD-385 re-baseline (suspect-until-audited): demoted production → beta.
-# `readiness: production` is re-earned only by passing the live-hardening
-# certification (live schema capture + write-field probing against a real
-# Control-D account). That is BLOCKED on a provisioned CONTROLD_API_KEY +
-# throwaway profile, so this blade cannot claim production yet. Static
-# conformance (CONV-29 _meta, HTTP bearer-auth gate) is done in v0.3.0.
-readiness: beta
+# DD-385 live-hardening certification PASSED 2026-06-06 (v0.4.0): live schema
+# capture + write-field probing against a real Control-D account fixed 12
+# wire-fidelity defects the mocked suite passed through. 11/11 read tools and
+# 6/7 write tools live-verified; only cd_access_update (device IP auth) was not
+# live-fired (real-device blast) but uses the verified indexed-array form.
+readiness: production
 homepage: https://github.com/Groupthink-dev/controld-blade-mcp
 
 # DD-181 Wave 2: dns-v1 (filtering) was renamed to protective-dns-v1 to free

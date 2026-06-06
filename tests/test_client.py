@@ -152,6 +152,25 @@ class TestControlDClient:
             client.delete_rule("p1", "example.com")
             mock.assert_called_once_with("DELETE", "/profiles/p1/rules/example.com")
 
+    def test_list_rules_root_uses_bare_path(self, client: ControlDClient) -> None:
+        # DD-385 live: GET /rules/0 -> 400 "No such group exists"; 0 must route
+        # to the bare /rules collection (ungrouped rules carry group:0).
+        with patch.object(client, "_request", return_value={"rules": []}) as mock:
+            client.list_rules("p1", 0)
+            mock.assert_called_once_with("GET", "/profiles/p1/rules")
+
+    def test_list_rules_group_uses_group_path(self, client: ControlDClient) -> None:
+        with patch.object(client, "_request", return_value={"rules": []}) as mock:
+            client.list_rules("p1", 2)
+            mock.assert_called_once_with("GET", "/profiles/p1/rules/2")
+
+    def test_update_service_includes_status(self, client: ControlDClient) -> None:
+        # DD-385 live: omitting `status` makes the endpoint emit a PHP warning
+        # (non-JSON 200) and silently no-op. status is required (default active).
+        with patch.object(client, "_request", return_value={}) as mock:
+            client.update_service("p1", "facebook", 0)
+            assert mock.call_args[1]["data"] == {"do": 0, "status": 1}
+
     def test_service_catalog_cache(self, client: ControlDClient) -> None:
         with patch.object(client, "_request", return_value={"categories": []}) as mock:
             client.get_service_catalog()

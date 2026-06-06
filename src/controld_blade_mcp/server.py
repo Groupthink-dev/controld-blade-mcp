@@ -331,13 +331,14 @@ async def cd_service_update(
     service_id: Annotated[str, Field(description="Service ID from catalog")],
     action: Annotated[int, Field(description="0=block, 1=bypass, 2=spoof, 3=redirect")],
     via: Annotated[str | None, Field(description="Proxy location for spoof/redirect")] = None,
+    status: Annotated[int, Field(description="1=active (default), 0=inactive")] = 1,
 ) -> str:
     """Set a service rule — block, bypass, spoof, or redirect."""
     gate = require_write()
     if gate:
         return gate
     try:
-        result = await _run(_get_client().update_service, profile_id, service_id, action, via)
+        result = await _run(_get_client().update_service, profile_id, service_id, action, via, status)
         return meta_tail(
             format_write_result(result, f"Service {service_id} rule set"), 1, target_id=service_id, rows_affected=1
         )

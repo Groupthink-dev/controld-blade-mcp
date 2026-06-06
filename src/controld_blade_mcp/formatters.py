@@ -503,7 +503,14 @@ def format_analytics_config(levels: list[dict[str, Any]], endpoints: list[dict[s
 # ── Write confirmations ─────────────────────────────────────────────
 
 
-def format_write_result(result: dict[str, Any], action: str) -> str:
-    """Format a write operation result."""
-    msg = result.get("message", f"{action} completed")
-    return f"OK: {msg}" if isinstance(msg, str) else f"OK: {action} completed"
+def format_write_result(result: Any, action: str) -> str:
+    """Format a write operation result.
+
+    Control-D write endpoints are inconsistent: some return a dict (optionally
+    with a ``message``), but several (e.g. ``DELETE /rules/{host}``) return a
+    bare list ``[]`` on success. Guard against non-dict bodies.
+    """
+    if isinstance(result, dict):
+        msg = result.get("message", f"{action} completed")
+        return f"OK: {msg}" if isinstance(msg, str) else f"OK: {action} completed"
+    return f"OK: {action} completed"

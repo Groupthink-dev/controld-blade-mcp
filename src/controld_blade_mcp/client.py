@@ -267,9 +267,15 @@ class ControlDClient:
         service_id: str,
         action: int,
         via: str | None = None,
+        status: int = 1,
     ) -> dict[str, Any]:
-        """Set a service rule: 0=block, 1=bypass, 2=spoof, 3=redirect."""
-        data: dict[str, Any] = {"do": action}
+        """Set a service rule: 0=block, 1=bypass, 2=spoof, 3=redirect.
+
+        ``status`` (1=active, 0=inactive) is REQUIRED by the API — omitting it
+        makes the endpoint emit a PHP ``Undefined array key "status"`` warning
+        (non-JSON HTTP 200) and silently no-op. Defaults to active.
+        """
+        data: dict[str, Any] = {"do": action, "status": status}
         if via is not None:
             data["via"] = via
         return self._request("PUT", f"/profiles/{profile_id}/services/{service_id}", data=data)

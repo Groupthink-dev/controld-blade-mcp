@@ -112,13 +112,18 @@ Responses use compact pipe-delimited format. Typical costs:
   `cd_access_update` — both `write+confirm`).
 - **Transport (DD-242).** `http` transport is bearer-mandatory + loopback-only
   (see Transport policy above); `stdio` is the default.
-- **Readiness: `beta` (suspect-until-audited).** `production` is re-earned only
-  by passing the DD-385 live-hardening certification (live schema capture +
-  write-field probing against a real Control-D account). That is **pending a
-  provisioned `CONTROLD_API_KEY` + throwaway profile** — until then the wire
-  fidelity of the indexed-array form keys (`hostnames[0]`), the response
-  envelope/nesting assumptions, and 401-vs-403 handling are mock-verified only,
-  not live-verified.
+- **Readiness: `production` — live-hardening certification PASSED (v0.4.0).**
+  The DD-385 live-capture audit ran against a real Control-D account and fixed
+  **12 wire-fidelity defects a 100%-green mocked suite passed straight through**
+  — every formatter read keys the API doesn't emit (`stats.rules` vs
+  `profile.rule.count`, flat `do` vs `action.do`, top-level filter `status` vs
+  per-`levels[]`, `device_type` vs `icon`, …); `cd_rules` 400'd on every default
+  call (`/rules/0`); `update_service` silently no-op'd without a required
+  `status` field; `format_write_result` crashed on the bare-list delete
+  response. The mocks now encode the **captured wire shapes**. 11/11 read tools
+  and 6/7 write tools are live-verified end-to-end; `cd_access_update` (device
+  IP auth) was not live-fired (real-device blast) but uses the verified
+  indexed-array form (`ips[i]`, same as the proven `hostnames[i]`).
 
 ## Licence
 

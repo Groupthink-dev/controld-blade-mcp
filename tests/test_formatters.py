@@ -223,3 +223,8 @@ class TestFormatWriteResult:
     def test_fallback(self) -> None:
         result = format_write_result({}, "Profile created")
         assert "OK: Profile created" in result
+
+    def test_list_result_does_not_crash(self) -> None:
+        # DD-385 live: DELETE /rules/{host} returns a bare list `[]` on success;
+        # format_write_result must not call .get() on it.
+        assert format_write_result([], "Rule deleted") == "OK: Rule deleted completed"
