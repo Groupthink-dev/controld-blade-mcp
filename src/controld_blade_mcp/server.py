@@ -330,7 +330,9 @@ async def cd_service_update(
     profile_id: Annotated[str, Field(description="Profile ID")],
     service_id: Annotated[str, Field(description="Service ID from catalog")],
     action: Annotated[int, Field(description="0=block, 1=bypass, 2=spoof, 3=redirect")],
-    via: Annotated[str | None, Field(description="Proxy location for spoof/redirect")] = None,
+    via: Annotated[
+        str | None, Field(description="spoof (action 2): target IP; redirect (action 3): proxy location PK")
+    ] = None,
     status: Annotated[int, Field(description="1=active (default), 0=inactive")] = 1,
 ) -> str:
     """Set a service rule — block, bypass, spoof, or redirect."""
@@ -352,7 +354,9 @@ async def cd_rule_create(
     profile_id: Annotated[str, Field(description="Profile ID")],
     hostnames: Annotated[list[str], Field(description="Hostnames to create rules for")],
     action: Annotated[int, Field(description="0=block, 1=bypass, 2=spoof, 3=redirect")],
-    via: Annotated[str | None, Field(description="Proxy location for spoof/redirect")] = None,
+    via: Annotated[
+        str | None, Field(description="spoof (action 2): target IP; redirect (action 3): proxy location PK")
+    ] = None,
     group: Annotated[int | None, Field(description="Folder ID to place rules in")] = None,
 ) -> str:
     """Create custom DNS rule(s) for one or more hostnames."""
@@ -377,7 +381,9 @@ async def cd_rule_update(
     profile_id: Annotated[str, Field(description="Profile ID")],
     hostnames: Annotated[list[str], Field(description="Hostnames to update rules for")],
     action: Annotated[int | None, Field(description="0=block, 1=bypass, 2=spoof, 3=redirect")] = None,
-    via: Annotated[str | None, Field(description="Proxy location for spoof/redirect")] = None,
+    via: Annotated[
+        str | None, Field(description="spoof (action 2): target IP; redirect (action 3): proxy location PK")
+    ] = None,
     group: Annotated[int | None, Field(description="Folder ID to move rules to")] = None,
 ) -> str:
     """Update existing custom DNS rule(s)."""
@@ -424,7 +430,9 @@ async def cd_rule_delete(
 async def cd_default_rule_set(
     profile_id: Annotated[str, Field(description="Profile ID")],
     action: Annotated[int, Field(description="0=block, 1=bypass, 2=spoof, 3=redirect")],
-    via: Annotated[str | None, Field(description="Proxy location for spoof/redirect")] = None,
+    via: Annotated[
+        str | None, Field(description="spoof (action 2): target IP; redirect (action 3): proxy location PK")
+    ] = None,
 ) -> str:
     """Set the default (catch-all) rule for a profile."""
     gate = require_write()

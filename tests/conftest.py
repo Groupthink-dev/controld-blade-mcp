@@ -85,11 +85,16 @@ def make_rule(
     via: str = "",
     group: int = 0,
 ) -> dict[str, Any]:
-    """Build a mock custom rule dict (live shape: action nests under ``action``)."""
-    result: dict[str, Any] = {"PK": pk, "order": 1, "group": group, "action": {"do": action, "status": 1}}
+    """Build a mock custom rule dict.
+
+    Live shape: ``{PK, order, group, action: {do, status, via}}`` — for a rule
+    the spoof/redirect target nests under ``action.via`` (services instead use
+    a top-level ``unlock_location``).
+    """
+    act: dict[str, Any] = {"do": action, "status": 1}
     if via:
-        result["unlock_location"] = via
-    return result
+        act["via"] = via
+    return {"PK": pk, "order": 1, "group": group, "action": act}
 
 
 def make_filter(

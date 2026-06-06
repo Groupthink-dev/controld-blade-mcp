@@ -120,10 +120,11 @@ Responses use compact pipe-delimited format. Typical costs:
   per-`levels[]`, `device_type` vs `icon`, …); `cd_rules` 400'd on every default
   call (`/rules/0`); `update_service` silently no-op'd without a required
   `status` field; `format_write_result` crashed on the bare-list delete
-  response. The mocks now encode the **captured wire shapes**. 11/11 read tools
-  and 6/7 write tools are live-verified end-to-end; `cd_access_update` (device
-  IP auth) was not live-fired (real-device blast) but uses the verified
-  indexed-array form (`ips[i]`, same as the proven `hostnames[i]`).
+  response; spoof/redirect rules rendered without their target (`via` nests
+  under `action.via` for rules, `unlock_location` for services). The mocks now
+  encode the **captured wire shapes**, and **all read + write paths are
+  live-verified** (incl. `cd_access_update` on a throwaway device, spoof→IP /
+  redirect→location rules, and the profile options render). 13 defects fixed.
 
 ## Licence
 

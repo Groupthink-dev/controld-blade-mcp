@@ -275,16 +275,19 @@ def format_filters(native: Any, external: Any) -> str:
 
 def _do_via(item: dict[str, Any]) -> tuple[int | None, int | None, str]:
     """Extract (do, status, via) from an item whose action lives under
-    ``action: {do, status}`` (live shape), falling back to flat keys.
+    ``action: {do, status, via}`` (live shape), falling back to flat keys.
 
-    ``via`` is the proxy location: the live key is ``unlock_location``
-    (legacy/flat payloads use ``via``)."""
+    ``via`` is the spoof target / redirect location and appears in three places
+    across the API: nested ``action.via`` (custom rules), top-level
+    ``unlock_location`` (services), or top-level ``via`` (legacy/flat payloads).
+    For a rule, spoof (do=2) stores an IP and redirect (do=3) a proxy location.
+    """
     act = item.get("action")
     if isinstance(act, dict):
-        do, status = act.get("do"), act.get("status")
+        do, status, act_via = act.get("do"), act.get("status"), act.get("via")
     else:
-        do, status = item.get("do"), item.get("status")
-    via = item.get("unlock_location") or item.get("via") or ""
+        do, status, act_via = item.get("do"), item.get("status"), None
+    via = item.get("unlock_location") or item.get("via") or act_via or ""
     return do, status, via
 
 

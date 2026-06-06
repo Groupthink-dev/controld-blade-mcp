@@ -153,8 +153,13 @@ class TestFormatRules:
         assert "BLOCK" in result
 
     def test_spoof_rule(self) -> None:
-        result = format_rules([make_rule(pk="netflix.com", action=2, via="uk-lon")])
-        assert "SPOOF -> uk-lon" in result
+        # DD-385 live: rule via nests under action.via (not top-level/unlock_location).
+        result = format_rules([make_rule(pk="netflix.com", action=2, via="1.2.3.4")])
+        assert "SPOOF -> 1.2.3.4" in result
+
+    def test_redirect_rule_via_action_via(self) -> None:
+        result = format_rules([make_rule(pk="x.com", action=3, via="SYD")])
+        assert "REDIRECT -> SYD" in result
 
     def test_with_folders(self) -> None:
         folders = [{"PK": 1, "name": "Ads"}]
