@@ -1,6 +1,6 @@
 # controld-blade-mcp
 
-MCP server for [Control-D](https://controld.com) DNS filtering and privacy management. 22 tools covering profiles, filters, services, custom rules, devices, and analytics.
+MCP server for [Control-D](https://controld.com) DNS filtering and privacy management. 23 tools covering profiles, filters, services, custom rules, devices, and analytics.
 
 ## Install
 
@@ -17,7 +17,13 @@ uv sync
 | `CONTROLD_MCP_TRANSPORT` | No | `stdio` (default) or `http` |
 | `CONTROLD_MCP_HOST` | No | HTTP bind address (default: `127.0.0.1`) |
 | `CONTROLD_MCP_PORT` | No | HTTP port (default: `8767`) |
-| `CONTROLD_MCP_API_TOKEN` | No | Bearer token for HTTP transport auth |
+| `CONTROLD_MCP_API_TOKEN` | When `http` | Bearer token clients must send. **Required to start `http` transport** (loopback-only, never unauthenticated). |
+
+> **Transport policy.** The default `stdio` transport needs no token. The `http`
+> transport is a manual loopback path only: the server **refuses to start**
+> unless `CONTROLD_MCP_API_TOKEN` is set and `CONTROLD_MCP_HOST` is loopback
+> (`127.0.0.1`/`::1`/`localhost`). Control-D tools mutate DNS-filtering policy —
+> never expose this surface unauthenticated or on a public interface.
 
 ## Usage
 
@@ -37,11 +43,11 @@ uv sync
 }
 ```
 
-### Sidereal
+### Stallari
 
-Automatically configured via pack system. See `sidereal-plugin.yaml`.
+Automatically configured via the pack system. See `stallari-plugin.yaml`.
 
-## Tools (22)
+## Tools (23)
 
 ### Read (12)
 | Tool | Description |
@@ -59,7 +65,7 @@ Automatically configured via pack system. See `sidereal-plugin.yaml`.
 | `cd_access` | IPs querying a device |
 | `cd_analytics_config` | Log levels + storage regions |
 
-### Write (10, gated)
+### Write (11, gated)
 | Tool | Gate | Description |
 |------|------|-------------|
 | `cd_profile_create` | write | Create profile |
@@ -93,6 +99,26 @@ Responses use compact pipe-delimited format. Typical costs:
 | `cd_profiles` (5 profiles) | ~150 |
 | `cd_rules` (20 rules) | ~500 |
 | `cd_devices` (10 devices) | ~200 |
+
+## Conformance & hardening (DD-385)
+
+- **Audit surface (CONV-29 / S-AUD-001).** Every tool appends a canonical
+  `_meta: {...}` JSON tail on the success path via `stallari-mcp-helpers`
+  (`append_meta`/`meta_envelope`). Write tools carry `target_id` + `rows_affected`.
+  Gate / confirm / error returns stay plain (no tail). All 23 tools verify
+  `match` under `stallari-mcp-lint --strict`.
+- **Risk class (DD-280).** The catalog entry declares per-tool `risk_class`:
+  12 `read_only`, 9 `external_side_effect`, 2 `high_risk` (`cd_rule_delete`,
+  `cd_access_update` — both `write+confirm`).
+- **Transport (DD-242).** `http` transport is bearer-mandatory + loopback-only
+  (see Transport policy above); `stdio` is the default.
+- **Readiness: `beta` (suspect-until-audited).** `production` is re-earned only
+  by passing the DD-385 live-hardening certification (live schema capture +
+  write-field probing against a real Control-D account). That is **pending a
+  provisioned `CONTROLD_API_KEY` + throwaway profile** — until then the wire
+  fidelity of the indexed-array form keys (`hostnames[0]`), the response
+  envelope/nesting assumptions, and 401-vs-403 handling are mock-verified only,
+  not live-verified.
 
 ## Licence
 

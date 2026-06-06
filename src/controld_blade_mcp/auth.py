@@ -1,10 +1,15 @@
 """Authentication for HTTP transport.
 
-Bearer token auth for remote/tunnel access. Set ``CONTROLD_MCP_API_TOKEN`` env var.
-Every HTTP request must include ``Authorization: Bearer <token>``.
+Bearer token auth for the manual loopback HTTP path. Set ``CONTROLD_MCP_API_TOKEN``
+env var. Every HTTP request must include ``Authorization: Bearer <token>``.
 
-If the env var is **unset or empty**, bearer auth is disabled — this keeps
-localhost-only setups working without any configuration.
+The middleware itself is a transparent pass-through when the env var is unset
+(so it imposes nothing on the default stdio transport). HTTP transport, however,
+is **not** allowed to start without a token: ``server.main()`` refuses to bind
+the http transport unless ``CONTROLD_MCP_API_TOKEN`` is set and the host is
+loopback (per the blade-mcp transport policy — DD-242 / access-policy). That
+gate, not this pass-through, is what guarantees the http surface is always
+authenticated.
 """
 
 from __future__ import annotations

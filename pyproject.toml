@@ -1,6 +1,6 @@
 [project]
 name = "controld-blade-mcp"
-version = "0.2.1"
+version = "0.3.0"
 description = "Control-D MCP Server — DNS filtering, privacy profiles, and device management"
 readme = "README.md"
 license = {text = "MIT"}
@@ -19,6 +19,7 @@ dependencies = [
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
     "pydantic>=2.0.0",
+    "stallari-mcp-helpers>=0.3.0,<1.0.0",
 ]
 
 [dependency-groups]
