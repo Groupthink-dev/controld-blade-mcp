@@ -1,5 +1,5 @@
 name: controld-blade-mcp
-version: "0.4.1"
+version: "0.4.2"
 description: "Control-D DNS filtering and privacy operations — profiles, filters, services, custom rules, device management."
 author: groupthink-dev
 license: MIT
